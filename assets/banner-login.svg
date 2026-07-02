@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="680" viewBox="0 0 1200 680" role="img" aria-label="Banner Glamora">
+  <rect width="1200" height="680" fill="#f7f1ee"/>
+  <path d="M0 492C154 376 308 318 462 318c176 0 295 78 474 78 111 0 199-28 264-84v368H0V492Z" fill="#e8f3f0"/>
+  <path d="M0 574c156-88 296-132 420-132 188 0 305 84 492 84 109 0 205-28 288-84v238H0V574Z" fill="#fffdfb"/>
+  <circle cx="883" cy="178" r="92" fill="#a83d64" opacity=".88"/>
+  <rect x="176" y="238" width="196" height="304" rx="30" fill="#fffdfb"/>
+  <rect x="220" y="178" width="108" height="102" rx="24" fill="#c0924f"/>
+  <rect x="606" y="218" width="250" height="352" rx="34" fill="#fffdfb"/>
+  <rect x="666" y="146" width="132" height="112" rx="28" fill="#2f786d"/>
+  <circle cx="731" cy="374" r="66" fill="#f7f1ee"/>
+  <path d="M705 374h52M731 348v52" stroke="#a83d64" stroke-width="12" stroke-linecap="round"/>
+</svg>

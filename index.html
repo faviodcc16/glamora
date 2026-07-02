@@ -1,0 +1,114 @@
+﻿<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Glamora | Sistema de pedidos</title>
+    <link rel="stylesheet" href="styles.css?v=glamora-visual-refresh-20260702">
+  </head>
+  <body>
+    <main id="auth-screen" class="auth-screen">
+      <section class="login-card" aria-label="Inicio de sesion">
+        <div class="login-card-inner">
+          <p class="eyebrow">Acceso seguro</p>
+          <h1>Ingresa al sistema</h1>
+          <p class="login-copy">Gestiona pedidos, pagos, inventario y reportes comerciales desde una sola plataforma.</p>
+          <form id="login-form" class="form-stack">
+            <label>
+              Correo
+              <input id="login-email" type="email" autocomplete="username" placeholder="usuario@glamora.pe" required>
+            </label>
+            <label>
+              Contraseña
+              <span class="password-field">
+                <input id="login-password" type="password" autocomplete="current-password" placeholder="Tu contraseña" required>
+                <button class="password-toggle" type="button" data-toggle-password="login-password" aria-label="Mostrar contraseña">Mostrar</button>
+              </span>
+            </label>
+            <p id="login-error" class="form-error" role="alert"></p>
+            <button class="primary-btn" type="submit">Entrar</button>
+          </form>
+          <p class="login-footnote">Conectado a Supabase. No compartas tu clave de acceso.</p>
+        </div>
+      </section>
+    </main>
+
+    <section id="app-shell" class="app-shell hidden" aria-label="Sistema Glamora">
+      <div id="sidebar-overlay" class="sidebar-overlay" hidden></div>
+      <aside id="sidebar" class="sidebar" aria-label="Menu principal">
+        <div class="sidebar-brand">
+          <img class="sidebar-logo" src="assets/logo-glamora.png" alt="Glamora Beauty Hub">
+          <span>Pedidos</span>
+        </div>
+        <div id="user-card" class="user-card"></div>
+        <nav id="nav-menu" class="nav-menu" aria-label="Navegacion principal"></nav>
+        <button id="logout-btn" class="ghost-btn logout-btn" type="button">Cerrar sesion</button>
+      </aside>
+
+      <div class="workspace">
+        <header class="topbar">
+          <button id="menu-toggle" class="icon-btn" type="button" aria-label="Abrir menu" aria-controls="sidebar" aria-expanded="false">
+            <span></span><span></span><span></span>
+          </button>
+          <div>
+            <p id="current-section" class="eyebrow">Dashboard</p>
+            <h2 id="page-title">Resumen comercial</h2>
+          </div>
+          <div class="topbar-actions">
+            <button id="quick-order-btn" class="secondary-btn" type="button">Nuevo pedido</button>
+          </div>
+        </header>
+
+        <main class="content">
+          <section id="dashboard-view" class="view active-view"></section>
+          <section id="order-view" class="view"></section>
+          <section id="orders-view" class="view"></section>
+          <section id="reports-view" class="view"></section>
+          <section id="catalog-view" class="view"></section>
+          <section id="users-view" class="view"></section>
+        </main>
+      </div>
+    </section>
+
+    <dialog id="order-dialog" class="modal">
+      <div class="modal-head">
+        <div>
+          <p class="eyebrow">Detalle de pedido</p>
+          <h3 id="dialog-title">Pedido</h3>
+        </div>
+        <button id="close-dialog" class="icon-close" type="button" aria-label="Cerrar">x</button>
+      </div>
+      <div id="dialog-content" class="modal-body"></div>
+    </dialog>
+
+    <dialog id="password-dialog" class="modal password-modal" aria-label="Cambiar contraseña">
+      <div class="modal-head">
+        <div>
+          <p class="eyebrow">Primer ingreso</p>
+          <h3>Cambia tu contraseña</h3>
+        </div>
+      </div>
+      <form id="password-form" class="modal-body form-stack">
+        <p class="panel-copy">Por seguridad, debes crear una contraseña personal antes de usar el sistema.</p>
+        <label>Nueva contraseña
+          <span class="password-field">
+            <input id="new-password" type="password" autocomplete="new-password" minlength="8" required placeholder="Mínimo 8 caracteres">
+            <button class="password-toggle" type="button" data-toggle-password="new-password" aria-label="Mostrar contraseña">Mostrar</button>
+          </span>
+        </label>
+        <label>Confirmar contraseña
+          <span class="password-field">
+            <input id="confirm-password" type="password" autocomplete="new-password" minlength="8" required placeholder="Repite tu contraseña">
+            <button class="password-toggle" type="button" data-toggle-password="confirm-password" aria-label="Mostrar contraseña">Mostrar</button>
+          </span>
+        </label>
+        <p id="password-error" class="form-error" role="alert"></p>
+        <button class="primary-btn" type="submit">Guardar contraseña</button>
+      </form>
+    </dialog>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script src="supabase-config.js?v=glamora-visual-refresh-20260702"></script>
+    <script src="script.js?v=glamora-visual-refresh-20260702"></script>
+  </body>
+</html>
