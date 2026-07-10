@@ -3,6 +3,7 @@ const SESSION_KEY = "GLOW_CLUB_session_v1";
 const SUPABASE_SESSION_KEY = "GLOW_CLUB_supabase_session_v1";
 
 const defaultUsers = [];
+
 let users = [];
 
 let products = [
@@ -2984,7 +2985,7 @@ const formatDate = new Intl.DateTimeFormat("es-PE", {
   timeStyle: "short"
 });
 
-const supabaseSettings = window.GLOW_CLUB_SUPABASE || null;
+const supabaseSettings = window.BEAU_VISAGE_SUPABASE || window.GLOW_CLUB_SUPABASE || null;
 
 const appConfig = {
   dataMode: supabaseSettings?.enabled ? "supabase" : "localStorage",
@@ -5997,7 +5998,5 @@ function escapeHtml(value) {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
 }
-
-
 
 
