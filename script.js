@@ -2,8 +2,7 @@ const STORAGE_KEY = "GLOW_CLUB_orders_v1";
 const SESSION_KEY = "GLOW_CLUB_session_v1";
 const SUPABASE_SESSION_KEY = "GLOW_CLUB_supabase_session_v1";
 
-];
-
+const defaultUsers = [];
 let users = [];
 
 let products = [
