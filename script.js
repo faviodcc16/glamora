@@ -2,18 +2,6 @@ const STORAGE_KEY = "GLOW_CLUB_orders_v1";
 const SESSION_KEY = "GLOW_CLUB_session_v1";
 const SUPABASE_SESSION_KEY = "GLOW_CLUB_supabase_session_v1";
 
-const defaultUsers = [
-  {
-    id: "gerencia",
-    name: "Gerencia Glow Club",
-    email: "gerencia@glowclub.pe",
-    password: "GlowClub2026",
-    role: "management",
-    phone: "",
-    zone: "Administracion",
-    supervisorId: "",
-    mustChangePassword: false
-  }
 ];
 
 let users = [];
