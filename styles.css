@@ -24,6 +24,7 @@ body {
   min-height: 100vh;
   color: var(--ink);
   font-weight: 400;
+  overflow: hidden;
   background:
     linear-gradient(130deg, rgba(222, 8, 97, 0.08), transparent 36%),
     linear-gradient(210deg, rgba(47, 120, 109, 0.08), transparent 34%),
@@ -255,15 +256,18 @@ textarea:focus {
 }
 
 .app-shell {
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr);
-}
+} 
 
 .sidebar {
   position: sticky;
   top: 0;
   height: 100vh;
+  max-height: 100vh;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 18px;
@@ -339,6 +343,9 @@ textarea:focus {
 
 .workspace {
   min-width: 0;
+  height: 100vh;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .topbar {
@@ -484,6 +491,7 @@ textarea:focus {
 .section-toolbar,
 .filters-row,
 .form-row,
+.product-picker-tools,
 .line-item {
   display: grid;
   gap: 12px;
@@ -520,28 +528,108 @@ textarea:focus {
   font-size: 1rem;
 }
 
+.product-section-head {
+  align-items: start;
+  gap: 16px;
+}
+
+.product-section-head h4 {
+  margin-bottom: 4px;
+}
+
+.product-section-head p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.product-picker-tools {
+  grid-template-columns: minmax(260px, 1fr) auto;
+  align-items: end;
+  margin-bottom: 14px;
+}
+
+.product-picker-note {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+  min-width: 170px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--rose-soft);
+}
+
+.product-picker-note strong {
+  color: var(--accent);
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.product-picker-note span {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
 .line-items {
   display: grid;
   gap: 12px;
 }
 
 .line-item {
-  grid-template-columns: minmax(220px, 1fr) 86px 120px 120px 42px;
-  align-items: end;
-  padding: 12px;
+  grid-template-columns: minmax(260px, 1fr) 96px 132px 132px 44px;
+  align-items: start;
+  padding: 14px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--paper);
 }
 
+.line-product-block {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.line-product-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.line-product-meta span {
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid var(--line);
+}
+
+.line-product-meta.missing-price span:first-child::after {
+  content: " · sin precio";
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.line-price[readonly],
+.line-subtotal[readonly] {
+  color: var(--ink);
+  background: #fff;
+  font-weight: 700;
+}
+
 .remove-line {
-  width: 42px;
+  width: 44px;
   height: 42px;
   border: 0;
   border-radius: 8px;
   color: #fff;
   background: var(--danger);
   font-weight: 700;
+  display: inline-grid;
+  place-items: center;
 }
 
 .order-summary {
@@ -593,6 +681,43 @@ textarea:focus {
   margin-top: 6px;
   color: var(--muted);
   font-size: 0.9rem;
+}
+
+.notify-section {
+  background: linear-gradient(180deg, #fff, var(--soft));
+}
+
+.check-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+  cursor: pointer;
+}
+
+.check-option input {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  accent-color: var(--blush);
+  flex: 0 0 auto;
+}
+
+.check-option input:disabled {
+  cursor: not-allowed;
+}
+
+.check-option span {
+  display: grid;
+  gap: 4px;
+}
+
+.check-option small {
+  color: var(--muted);
+  line-height: 1.45;
 }
 
 .receipt-preview {
@@ -1557,6 +1682,7 @@ td span {
   .form-row,
   .section-toolbar,
   .filters-row,
+  .product-picker-tools,
   .catalog-toolbar,
   .report-title-row,
   .report-section-head.with-control,
@@ -1572,9 +1698,14 @@ td span {
     grid-template-columns: 1fr 90px;
   }
 
-  .line-item label:first-child,
-  .line-item label:nth-child(4) {
+  .line-product-block,
+  .line-subtotal-field {
     grid-column: 1 / -1;
+  }
+
+  .product-picker-note {
+    justify-items: start;
+    min-width: 0;
   }
 
   .remove-line {
@@ -1679,7 +1810,7 @@ td span {
   }
 }
 
-/* GLAMORA visual refresh 2026-07-02 */
+/* Glow Club visual refresh 2026-07-09 */
 :root {
   --ink: #1f2028;
   --muted: #6d6875;
@@ -2612,6 +2743,7 @@ textarea {
   .metrics-grid,
   .hierarchy-summary,
   .catalog-toolbar,
+  .product-picker-tools,
   .form-row,
   .detail-stats,
   .payment-mini-grid,
@@ -2662,6 +2794,11 @@ textarea {
 
   .line-item {
     grid-template-columns: 1fr;
+  }
+
+  .product-picker-note {
+    justify-items: start;
+    min-width: 0;
   }
 
   .remove-line {
@@ -2801,4 +2938,175 @@ textarea {
     width: 48px;
     height: 48px;
   }
+}
+.product-picker-tools-add {
+  grid-template-columns: minmax(260px, 1fr) auto auto;
+  align-items: end;
+}
+
+.add-selected-product {
+  min-height: 44px;
+  white-space: nowrap;
+}
+
+.product-helper {
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.empty-products {
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  padding: 16px;
+  background: var(--paper);
+}
+
+.empty-lines-message {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.selected-product-card {
+  display: grid;
+  gap: 6px;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.selected-product-card strong {
+  font-size: 0.95rem;
+  line-height: 1.35;
+}
+
+.selected-product-card span {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+@media (max-width: 760px) {
+  .product-picker-tools-add {
+    grid-template-columns: 1fr;
+  }
+
+  .add-selected-product {
+    width: 100%;
+  }
+}
+.workspace::-webkit-scrollbar,
+.sidebar::-webkit-scrollbar {
+  width: 10px;
+}
+
+.workspace::-webkit-scrollbar-track,
+.sidebar::-webkit-scrollbar-track {
+  background: #f7f1ee;
+}
+
+.workspace::-webkit-scrollbar-thumb,
+.sidebar::-webkit-scrollbar-thumb {
+  background: rgba(222, 8, 97, 0.28);
+  border-radius: 999px;
+  border: 2px solid #f7f1ee;
+}
+
+.workspace::-webkit-scrollbar-thumb:hover,
+.sidebar::-webkit-scrollbar-thumb:hover {
+  background: rgba(222, 8, 97, 0.45);
+}
+/* Scroll independiente en escritorio */
+@media (min-width: 861px) {
+  body {
+    overflow: hidden;
+  }
+
+  .app-shell {
+    height: 100vh;
+    overflow: hidden;
+    display: grid;
+    grid-template-columns: 280px minmax(0, 1fr);
+  }
+
+  .sidebar {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    max-height: 100vh;
+    overflow-y: auto;
+  }
+
+  .workspace {
+    min-width: 0;
+    height: 100vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+}
+
+/* Ajuste para celular */
+@media (max-width: 860px) {
+  body {
+    overflow: auto;
+  }
+
+  .app-shell {
+    min-height: 100vh;
+    height: auto;
+    overflow: visible;
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: min(300px, 86vw);
+    height: 100vh;
+    max-height: 100vh;
+    overflow-y: auto;
+    transform: translateX(-110%);
+    z-index: 40;
+  }
+
+  .sidebar.open {
+    transform: translateX(0);
+  }
+
+  .workspace {
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+  }
+
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+  }
+}
+
+/* Scrollbar bonito solo donde aplica */
+.workspace::-webkit-scrollbar,
+.sidebar::-webkit-scrollbar {
+  width: 10px;
+}
+
+.workspace::-webkit-scrollbar-track,
+.sidebar::-webkit-scrollbar-track {
+  background: #f7f1ee;
+}
+
+.workspace::-webkit-scrollbar-thumb,
+.sidebar::-webkit-scrollbar-thumb {
+  background: rgba(222, 8, 97, 0.28);
+  border-radius: 999px;
+  border: 2px solid #f7f1ee;
+}
+
+.workspace::-webkit-scrollbar-thumb:hover,
+.sidebar::-webkit-scrollbar-thumb:hover {
+  background: rgba(222, 8, 97, 0.45);
 }
