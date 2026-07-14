@@ -1,10 +1,10 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="es">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Glow Club | Sistema de pedidos</title>
-    <link rel="stylesheet" href="styles.css?v=glow-club-final-20260709">
+    <link rel="stylesheet" href="styles.css?v=glow-club-inventario-20260714">
   </head>
   <body>
     <main id="auth-screen" class="auth-screen">
@@ -28,7 +28,7 @@
             <p id="login-error" class="form-error" role="alert"></p>
             <button class="primary-btn" type="submit">Entrar</button>
           </form>
-          <p class="login-footnote">No compartas tu clave de acceso.</p>
+          <p class="login-footnote">Conectado a Supabase. No compartas tu clave de acceso.</p>
         </div>
       </section>
     </main>
@@ -54,7 +54,7 @@
             <p id="current-section" class="eyebrow">Dashboard</p>
             <h2 id="page-title">Resumen comercial</h2>
           </div>
-<div class="topbar-actions"></div>
+<div class="topbar-actions"><button id="quick-order-btn" class="primary-btn" type="button"><span>Nuevo pedido</span></button></div>
         </header>
 
         <main class="content">
@@ -62,6 +62,7 @@
           <section id="order-view" class="view"></section>
           <section id="orders-view" class="view"></section>
           <section id="reports-view" class="view"></section>
+          <section id="inventory-view" class="view"></section>
           <section id="catalog-view" class="view"></section>
           <section id="users-view" class="view"></section>
         </main>
@@ -105,8 +106,40 @@
       </form>
     </dialog>
 
+
+    <dialog id="inventory-dialog" class="modal inventory-modal" aria-label="Editar inventario y precio">
+      <div class="modal-head">
+        <div>
+          <p class="eyebrow">Inventario</p>
+          <h3 id="inventory-dialog-title">Editar producto</h3>
+        </div>
+        <button id="close-inventory-dialog" class="icon-close" type="button" aria-label="Cerrar">x</button>
+      </div>
+      <form id="inventory-form" class="modal-body form-stack">
+        <input id="inventory-sku" type="hidden">
+        <div class="inventory-current-grid">
+          <div><span>SKU</span><strong id="inventory-current-sku">-</strong></div>
+          <div><span>Categoría</span><strong id="inventory-current-category">-</strong></div>
+        </div>
+        <div class="form-row">
+          <label>Stock disponible
+            <input id="inventory-stock" type="number" min="0" step="1" required inputmode="numeric">
+          </label>
+          <label>Precio de venta
+            <span class="money-input"><span>S/</span><input id="inventory-price" type="number" min="0" step="0.01" required inputmode="decimal"></span>
+          </label>
+        </div>
+        <p class="inventory-help">El nuevo stock reemplazará la cantidad actual. El precio actualizado se usará automáticamente en los próximos pedidos.</p>
+        <p id="inventory-form-error" class="form-error" role="alert"></p>
+        <div class="modal-actions">
+          <button id="cancel-inventory-edit" class="ghost-btn" type="button">Cancelar</button>
+          <button class="primary-btn" type="submit">Guardar cambios</button>
+        </div>
+      </form>
+    </dialog>
+
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
-    <script src="supabase-config.js?v=glow-club-final-20260709"></script>
-    <script src="script.js?v=glow-club-final-20260709"></script>
+    <script src="supabase-config.js?v=glow-club-inventario-20260714"></script>
+    <script src="script.js?v=glow-club-inventario-20260714"></script>
   </body>
 </html>
