@@ -2957,6 +2957,7 @@ const navItems = [
   { id: "order", label: "Nuevo pedido", title: "Registrar pedido", roles: ["management", "supervisor", "consultant"], icon: "bag" },
   { id: "orders", label: "Pedidos", title: "Registro de pedidos", roles: ["management", "supervisor", "consultant"], icon: "clipboard" },
   { id: "reports", label: "Reportes", title: "Reportes comerciales", roles: ["management", "supervisor", "consultant"], icon: "chart" },
+  { id: "inventory", label: "Inventario", title: "Inventario y precios", roles: ["management"], icon: "box" },
   { id: "catalog", label: "Catálogo", title: "Productos Glow Club", roles: ["management", "supervisor", "consultant"], icon: "tag" },
   { id: "users", label: "Equipo", title: "Jerarquía comercial", roles: ["management", "supervisor"], icon: "users" }
 ];
@@ -3012,6 +3013,9 @@ let catalogPage = 1;
 let catalogPageSize = 5;
 let catalogQuickFilter = "all";
 let pendingCatalogSku = "";
+let inventoryPage = 1;
+let inventoryPageSize = 10;
+let inventoryStatusFilter = "all";
 
 const authScreen = document.querySelector("#auth-screen");
 const appShell = document.querySelector("#app-shell");
@@ -3034,6 +3038,13 @@ const passwordForm = document.querySelector("#password-form");
 const newPasswordInput = document.querySelector("#new-password");
 const confirmPasswordInput = document.querySelector("#confirm-password");
 const passwordError = document.querySelector("#password-error");
+const inventoryDialog = document.querySelector("#inventory-dialog");
+const inventoryForm = document.querySelector("#inventory-form");
+const inventoryDialogTitle = document.querySelector("#inventory-dialog-title");
+const inventorySkuInput = document.querySelector("#inventory-sku");
+const inventoryStockInput = document.querySelector("#inventory-stock");
+const inventoryPriceInput = document.querySelector("#inventory-price");
+const inventoryFormError = document.querySelector("#inventory-form-error");
 
 let pendingPasswordUser = null;
 let pendingPasswordCurrent = "";
@@ -3051,6 +3062,10 @@ async function init() {
   document.addEventListener("click", handlePasswordToggle);
 document.querySelector("#quick-order-btn")?.addEventListener("click", handleTopbarAction);
   document.querySelector("#close-dialog").addEventListener("click", () => orderDialog.close());
+  document.querySelector("#close-inventory-dialog")?.addEventListener("click", () => inventoryDialog?.close());
+  document.querySelector("#cancel-inventory-edit")?.addEventListener("click", () => inventoryDialog?.close());
+  inventoryForm?.addEventListener("submit", handleInventoryUpdate);
+  inventoryDialog?.addEventListener("cancel", () => { if (inventoryFormError) inventoryFormError.textContent = ""; });
   passwordForm?.addEventListener("submit", handlePasswordChange);
   passwordDialog?.addEventListener("cancel", (event) => event.preventDefault());
 
@@ -3199,7 +3214,7 @@ async function supabaseFetch(path, options = {}) {
 
 function friendlyDatabaseError(error) {
   const message = error?.message || String(error);
-  if (/row-level security|violates row-level|policy|permission denied|schema cache|does not exist|not found|login_app_user|change_app_password|create_app_user|create_order_with_inventory|update_order_payment_status|update_order_status/i.test(message)) {
+  if (/row-level security|violates row-level|policy|permission denied|schema cache|does not exist|not found|login_app_user|change_app_password|create_app_user|create_order_with_inventory|update_order_payment_status|update_order_status|update_product_inventory_price/i.test(message)) {
     return `${message}. Ejecuta primero glow-club-01-reiniciar-base.sql y luego products-seed-glow-club.sql en Supabase SQL Editor.`;
   }
   return message;
@@ -3582,6 +3597,11 @@ function configureTopbarAction() {
 
   button.onclick = null;
 
+  if (currentView === "inventory") {
+    button.hidden = true;
+    return;
+  }
+
   if (currentView === "users" && canManageTeam()) {
     button.hidden = false;
     button.dataset.action = "new-access";
@@ -3632,6 +3652,7 @@ function renderCurrentView() {
   if (currentView === "order") renderOrderForm();
   if (currentView === "orders") renderOrders();
   if (currentView === "reports") renderReports();
+  if (currentView === "inventory") renderInventory();
   if (currentView === "catalog") renderCatalog();
   if (currentView === "users") renderUsers();
 }
@@ -5419,6 +5440,239 @@ function productReportTable(rows) {
   `;
 }
 
+function renderInventory() {
+  if (!canManageAll()) {
+    showView("dashboard");
+    return;
+  }
+
+  const categories = [...new Set(products.map((product) => product.category).filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
+  const totalStock = products.reduce((sum, product) => sum + Number(product.stock || 0), 0);
+  const withoutStock = products.filter((product) => Number(product.stock || 0) <= 0).length;
+  const withoutPrice = products.filter((product) => Number(product.price || 0) <= 0).length;
+
+  document.querySelector("#inventory-view").innerHTML = `
+    <div class="view-head page-hero">
+      <div>
+        <p class="section-kicker">Control de inventario</p>
+        <h3>Inventario y precios</h3>
+        <p>Gerencia puede actualizar el stock contado y el precio oficial de cada producto.</p>
+      </div>
+    </div>
+    ${metricGrid([
+      { label: "Productos", value: products.length, note: "registrados", icon: "bag", tone: "pink" },
+      { label: "Stock total", value: Number(totalStock).toLocaleString("es-PE"), note: "unidades", icon: "box", tone: "orange" },
+      { label: "Sin stock", value: withoutStock, note: "productos", icon: "target", tone: "violet" },
+      { label: "Sin precio", value: withoutPrice, note: "por completar", icon: "tag", tone: "pink" }
+    ], "inventory-metrics")}
+    <section class="inventory-control-panel">
+      <div class="inventory-toolbar">
+        <label class="search-field">
+          ${svgIcon("search")}
+          <input id="inventory-search" placeholder="Buscar producto o SKU">
+        </label>
+        <select id="inventory-category">
+          <option value="all">Todas las categorías</option>
+          ${categories.map((category) => `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`).join("")}
+        </select>
+        <select id="inventory-status">
+          <option value="all">Todos los estados</option>
+          <option value="available">Con stock</option>
+          <option value="low">Stock bajo (1 a 5)</option>
+          <option value="out">Sin stock</option>
+          <option value="no-price">Sin precio</option>
+        </select>
+      </div>
+      <p class="inventory-note">Usa “Editar” para reemplazar la cantidad actual y definir el precio que se aplicará en los siguientes pedidos.</p>
+    </section>
+    <div id="inventory-list"></div>
+  `;
+
+  const refresh = () => {
+    inventoryPage = 1;
+    inventoryStatusFilter = document.querySelector("#inventory-status")?.value || "all";
+    renderInventoryList();
+  };
+  document.querySelector("#inventory-search")?.addEventListener("input", refresh);
+  document.querySelector("#inventory-category")?.addEventListener("change", refresh);
+  document.querySelector("#inventory-status")?.addEventListener("change", refresh);
+  renderInventoryList();
+}
+
+function inventoryFilteredRows() {
+  const search = (document.querySelector("#inventory-search")?.value || "").trim().toLowerCase();
+  const category = document.querySelector("#inventory-category")?.value || "all";
+  const status = document.querySelector("#inventory-status")?.value || inventoryStatusFilter || "all";
+
+  return products.filter((product) => {
+    const stock = Number(product.stock || 0);
+    const price = Number(product.price || 0);
+    const matchesSearch = !search || [product.name, product.sku, product.category, product.subcategory].join(" ").toLowerCase().includes(search);
+    const matchesCategory = category === "all" || product.category === category;
+    const matchesStatus = status === "all"
+      || (status === "available" && stock > 0)
+      || (status === "low" && stock > 0 && stock <= 5)
+      || (status === "out" && stock <= 0)
+      || (status === "no-price" && price <= 0);
+    return matchesSearch && matchesCategory && matchesStatus;
+  });
+}
+
+function renderInventoryList() {
+  const container = document.querySelector("#inventory-list");
+  if (!container) return;
+  const rows = inventoryFilteredRows();
+
+  if (!rows.length) {
+    container.innerHTML = `<div class="empty-state">No hay productos con esos filtros.</div>`;
+    return;
+  }
+
+  const totalPages = Math.max(1, Math.ceil(rows.length / inventoryPageSize));
+  inventoryPage = Math.min(Math.max(1, inventoryPage), totalPages);
+  const start = (inventoryPage - 1) * inventoryPageSize;
+  const pageRows = rows.slice(start, start + inventoryPageSize);
+
+  container.innerHTML = `
+    <section class="inventory-table-card">
+      <div class="inventory-table-scroll">
+        <table class="inventory-table">
+          <thead>
+            <tr><th>Producto</th><th>Categoría</th><th>Precio</th><th>Stock</th><th>Estado</th><th>Acción</th></tr>
+          </thead>
+          <tbody>
+            ${pageRows.map(inventoryProductRow).join("")}
+          </tbody>
+        </table>
+      </div>
+      <div class="pagination-row">
+        <span>Mostrando ${start + 1}-${Math.min(start + inventoryPageSize, rows.length)} de ${rows.length} productos</span>
+        <div class="pagination-actions">
+          <button class="ghost-btn page-btn" type="button" data-inventory-page="${inventoryPage - 1}" ${inventoryPage === 1 ? "disabled" : ""}>‹</button>
+          ${inventoryPaginationButtons(totalPages)}
+          <button class="ghost-btn page-btn" type="button" data-inventory-page="${inventoryPage + 1}" ${inventoryPage === totalPages ? "disabled" : ""}>›</button>
+          <select id="inventory-page-size" aria-label="Productos por página">
+            ${[10, 20, 50].map((size) => `<option value="${size}" ${size === inventoryPageSize ? "selected" : ""}>${size} por página</option>`).join("")}
+          </select>
+        </div>
+      </div>
+    </section>
+  `;
+
+  container.querySelectorAll("[data-inventory-page]").forEach((button) => {
+    button.addEventListener("click", () => {
+      inventoryPage = Number(button.dataset.inventoryPage);
+      renderInventoryList();
+    });
+  });
+  container.querySelector("#inventory-page-size")?.addEventListener("change", (event) => {
+    inventoryPageSize = Number(event.target.value);
+    inventoryPage = 1;
+    renderInventoryList();
+  });
+  container.querySelectorAll("[data-edit-inventory]").forEach((button) => {
+    button.addEventListener("click", () => openInventoryEditor(button.dataset.editInventory));
+  });
+}
+
+function inventoryProductRow(product) {
+  const stock = Number(product.stock || 0);
+  const price = Number(product.price || 0);
+  const stockClass = stock <= 0 ? "inventory-state-out" : stock <= 5 ? "inventory-state-low" : "inventory-state-ok";
+  const stockLabel = stock <= 0 ? "Sin stock" : stock <= 5 ? "Stock bajo" : "Disponible";
+  return `
+    <tr>
+      <td data-label="Producto">
+        <div class="inventory-product-cell">
+          ${productThumbnail(product)}
+          <div><strong>${escapeHtml(product.name)}</strong><span>${escapeHtml(product.sku)}</span></div>
+        </div>
+      </td>
+      <td data-label="Categoría"><strong>${escapeHtml(product.category || "Sin categoría")}</strong><span class="inventory-subcategory">${escapeHtml(product.subcategory || "")}</span></td>
+      <td data-label="Precio"><strong class="inventory-value ${price <= 0 ? "inventory-value-warning" : ""}">${formatMoney.format(price)}</strong></td>
+      <td data-label="Stock"><strong class="inventory-value">${Number(stock).toLocaleString("es-PE")}</strong></td>
+      <td data-label="Estado"><span class="inventory-state ${stockClass}">${stockLabel}</span>${price <= 0 ? `<span class="inventory-state inventory-state-price">Sin precio</span>` : ""}</td>
+      <td data-label="Acción"><button class="secondary-btn inventory-edit-btn" type="button" data-edit-inventory="${escapeHtml(product.sku)}">Editar</button></td>
+    </tr>
+  `;
+}
+
+function inventoryPaginationButtons(totalPages) {
+  const pages = [];
+  for (let page = 1; page <= totalPages; page += 1) {
+    if (page === 1 || page === totalPages || Math.abs(page - inventoryPage) <= 1) {
+      pages.push(`<button class="ghost-btn page-btn ${page === inventoryPage ? "active" : ""}" type="button" data-inventory-page="${page}">${page}</button>`);
+    } else if (pages[pages.length - 1] !== `<span class="pagination-ellipsis">...</span>`) {
+      pages.push(`<span class="pagination-ellipsis">...</span>`);
+    }
+  }
+  return pages.join("");
+}
+
+function openInventoryEditor(sku) {
+  if (!canManageAll()) return;
+  const product = products.find((item) => item.sku === sku);
+  if (!product || !inventoryDialog) return;
+
+  inventoryDialogTitle.textContent = product.name;
+  inventorySkuInput.value = product.sku;
+  inventoryStockInput.value = Number(product.stock || 0);
+  inventoryPriceInput.value = Number(product.price || 0).toFixed(2);
+  document.querySelector("#inventory-current-sku").textContent = product.sku;
+  document.querySelector("#inventory-current-category").textContent = [product.category, product.subcategory].filter(Boolean).join(" · ") || "Sin categoría";
+  inventoryFormError.textContent = "";
+  inventoryDialog.showModal();
+  window.setTimeout(() => inventoryStockInput.focus(), 60);
+}
+
+async function handleInventoryUpdate(event) {
+  event.preventDefault();
+  if (!canManageAll()) return;
+
+  const sku = inventorySkuInput.value;
+  const stock = Number(inventoryStockInput.value);
+  const price = Number(inventoryPriceInput.value);
+
+  if (!sku || !Number.isFinite(stock) || stock < 0 || !Number.isFinite(price) || price < 0) {
+    inventoryFormError.textContent = "Ingresa un stock y un precio válidos, sin números negativos.";
+    return;
+  }
+
+  const submitButton = inventoryForm.querySelector("button[type='submit']");
+  submitButton.disabled = true;
+  submitButton.textContent = "Guardando...";
+  inventoryFormError.textContent = "";
+
+  try {
+    if (isSupabaseMode()) {
+      await supabaseFetch("/rest/v1/rpc/update_product_inventory_price", {
+        method: "POST",
+        body: JSON.stringify({
+          p_actor_id: currentUser.id,
+          p_sku: sku,
+          p_stock: stock,
+          p_price: price
+        })
+      });
+    }
+
+    const product = products.find((item) => item.sku === sku);
+    if (product) {
+      product.stock = stock;
+      product.price = price;
+    }
+
+    inventoryDialog.close();
+    showToast(`Inventario de ${sku} actualizado.`);
+    renderInventory();
+  } catch (error) {
+    inventoryFormError.textContent = friendlyDatabaseError(error);
+  } finally {
+    submitButton.disabled = false;
+    submitButton.textContent = "Guardar cambios";
+  }
+}
+
 function renderCatalog() {
   const categories = [...new Set(products.map((product) => product.category))];
   const subcategories = [...new Set(products.map((product) => product.subcategory).filter(Boolean))];
@@ -5429,7 +5683,7 @@ function renderCatalog() {
       <div>
         <p class="section-kicker">Catálogo</p>
         <h3>Productos Glow Club</h3>
-        <p>Catálogo disponible para armar pedidos y consultar stock.</p>
+        <p>Catálogo disponible para armar pedidos y consultar stock y precios vigentes.</p>
       </div>
     </div>
     <section class="catalog-control-panel">
@@ -5528,7 +5782,7 @@ function renderCatalogList() {
     <section class="catalog-table-card">
       <div class="catalog-table-head">
         <span>Producto</span>
-        <span>Stock</span>
+        <span>Precio y stock</span>
         <span>Acción</span>
       </div>
       <div class="catalog-list">
@@ -5562,6 +5816,9 @@ function renderCatalogList() {
   container.querySelectorAll("[data-add-catalog-product]").forEach((button) => {
     button.addEventListener("click", () => addCatalogProductToOrder(button.dataset.addCatalogProduct));
   });
+  container.querySelectorAll("[data-edit-catalog-product]").forEach((button) => {
+    button.addEventListener("click", () => openInventoryEditor(button.dataset.editCatalogProduct));
+  });
 }
 
 function catalogProductRow(product) {
@@ -5576,10 +5833,12 @@ function catalogProductRow(product) {
         </div>
       </div>
       <div class="product-row-meta">
-        <strong>${stock} disponible${stock === 1 ? "" : "s"}</strong>
+        <strong>${formatMoney.format(Number(product.price || 0))}</strong>
+        <span>${stock} disponible${stock === 1 ? "" : "s"}</span>
         <span class="status-pill ${stock > 0 ? "status-confirmed" : "status-pending"}">BEAU VISAGE</span>
       </div>
       <div class="catalog-row-action">
+        ${canManageAll() ? `<button class="ghost-btn add-product-btn" type="button" data-edit-catalog-product="${product.sku}"><span>Editar</span></button>` : ""}
         ${canRegisterOrders() ? `<button class="secondary-btn add-product-btn" type="button" data-add-catalog-product="${product.sku}">${svgIcon("plus")}<span>Agregar</span></button>` : ""}
       </div>
     </article>
