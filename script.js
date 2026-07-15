@@ -3045,6 +3045,9 @@ const inventorySkuInput = document.querySelector("#inventory-sku");
 const inventoryStockInput = document.querySelector("#inventory-stock");
 const inventoryPriceInput = document.querySelector("#inventory-price");
 const inventoryFormError = document.querySelector("#inventory-form-error");
+const productDialog = document.querySelector("#product-dialog");
+const productForm = document.querySelector("#product-form");
+const productFormError = document.querySelector("#product-form-error");
 
 let pendingPasswordUser = null;
 let pendingPasswordCurrent = "";
@@ -3066,6 +3069,10 @@ document.querySelector("#quick-order-btn")?.addEventListener("click", handleTopb
   document.querySelector("#cancel-inventory-edit")?.addEventListener("click", () => inventoryDialog?.close());
   inventoryForm?.addEventListener("submit", handleInventoryUpdate);
   inventoryDialog?.addEventListener("cancel", () => { if (inventoryFormError) inventoryFormError.textContent = ""; });
+  document.querySelector("#close-product-dialog")?.addEventListener("click", () => productDialog?.close());
+  document.querySelector("#cancel-product-create")?.addEventListener("click", () => productDialog?.close());
+  productForm?.addEventListener("submit", handleProductCreate);
+  productDialog?.addEventListener("cancel", () => { if (productFormError) productFormError.textContent = ""; });
   passwordForm?.addEventListener("submit", handlePasswordChange);
   passwordDialog?.addEventListener("cancel", (event) => event.preventDefault());
 
@@ -3214,7 +3221,7 @@ async function supabaseFetch(path, options = {}) {
 
 function friendlyDatabaseError(error) {
   const message = error?.message || String(error);
-  if (/row-level security|violates row-level|policy|permission denied|schema cache|does not exist|not found|login_app_user|change_app_password|create_app_user|create_order_with_inventory|update_order_payment_status|update_order_status|update_product_inventory_price/i.test(message)) {
+  if (/row-level security|violates row-level|policy|permission denied|schema cache|does not exist|not found|login_app_user|change_app_password|create_app_user|create_order_with_inventory|update_order_payment_status|update_order_status|update_product_inventory_price|create_product|deactivate_product|deactivate_app_user/i.test(message)) {
     return `${message}. Ejecuta primero glow-club-01-reiniciar-base.sql y luego products-seed-glow-club.sql en Supabase SQL Editor.`;
   }
   return message;
@@ -3226,8 +3233,8 @@ async function restoreSupabaseSession() {
   try {
     await loadSupabaseData();
     const user = users.find((item) => item.id === session.userId);
-    if (!user) {
-      throw new Error("Usuario no encontrado.");
+    if (!user || user.active === false) {
+      throw new Error("Usuario no encontrado o desactivado.");
     }
     if (user.mustChangePassword) {
       localStorage.removeItem(SUPABASE_SESSION_KEY);
@@ -3259,7 +3266,7 @@ async function supabaseAppLogin(email, password) {
 
 async function loadSupabaseData() {
   const [appUsers, remoteProducts, orders, items, receipts] = await Promise.all([
-    fetchAppUsers("/rest/v1/app_user_profiles?select=id,name,email,role,phone,zone,supervisor_id,active,must_change_password&active=eq.true&order=name.asc"),
+    fetchAppUsers("/rest/v1/app_user_profiles?select=id,name,email,role,phone,zone,supervisor_id,active,must_change_password&order=name.asc"),
     fetchProducts(),
     supabaseFetch("/rest/v1/orders?select=*&order=created_at.desc"),
     supabaseFetch("/rest/v1/order_items?select=*"),
@@ -3299,6 +3306,7 @@ function mapAppUser(profile) {
     phone: profile.phone || "",
     zone: profile.zone || "",
     supervisorId: profile.supervisor_id || profile.supervisorId || "",
+    active: profile.active !== false,
     mustChangePassword: Boolean(profile.must_change_password ?? profile.mustChangePassword)
   };
 }
@@ -5456,8 +5464,9 @@ function renderInventory() {
       <div>
         <p class="section-kicker">Control de inventario</p>
         <h3>Inventario y precios</h3>
-        <p>Gerencia puede actualizar el stock contado y el precio oficial de cada producto.</p>
+        <p>Gerencia puede agregar productos, actualizar sus datos comerciales o retirarlos del catálogo.</p>
       </div>
+      <button class="primary-btn" type="button" data-action="new-product">${svgIcon("plus")}<span>Nuevo producto</span></button>
     </div>
     ${metricGrid([
       { label: "Productos", value: products.length, note: "registrados", icon: "bag", tone: "pink" },
@@ -5483,7 +5492,7 @@ function renderInventory() {
           <option value="no-price">Sin precio</option>
         </select>
       </div>
-      <p class="inventory-note">Usa “Editar” para reemplazar la cantidad actual y definir el precio que se aplicará en los siguientes pedidos.</p>
+      <p class="inventory-note">Usa “Editar” para ajustar stock y precio. “Eliminar” retira el producto de las ventas sin borrar el historial de pedidos.</p>
     </section>
     <div id="inventory-list"></div>
   `;
@@ -5496,6 +5505,7 @@ function renderInventory() {
   document.querySelector("#inventory-search")?.addEventListener("input", refresh);
   document.querySelector("#inventory-category")?.addEventListener("change", refresh);
   document.querySelector("#inventory-status")?.addEventListener("change", refresh);
+  document.querySelector("[data-action='new-product']")?.addEventListener("click", openProductCreator);
   renderInventoryList();
 }
 
@@ -5573,6 +5583,9 @@ function renderInventoryList() {
   container.querySelectorAll("[data-edit-inventory]").forEach((button) => {
     button.addEventListener("click", () => openInventoryEditor(button.dataset.editInventory));
   });
+  container.querySelectorAll("[data-delete-product]").forEach((button) => {
+    button.addEventListener("click", () => handleProductDelete(button.dataset.deleteProduct));
+  });
 }
 
 function inventoryProductRow(product) {
@@ -5592,7 +5605,12 @@ function inventoryProductRow(product) {
       <td data-label="Precio"><strong class="inventory-value ${price <= 0 ? "inventory-value-warning" : ""}">${formatMoney.format(price)}</strong></td>
       <td data-label="Stock"><strong class="inventory-value">${Number(stock).toLocaleString("es-PE")}</strong></td>
       <td data-label="Estado"><span class="inventory-state ${stockClass}">${stockLabel}</span>${price <= 0 ? `<span class="inventory-state inventory-state-price">Sin precio</span>` : ""}</td>
-      <td data-label="Acción"><button class="secondary-btn inventory-edit-btn" type="button" data-edit-inventory="${escapeHtml(product.sku)}">Editar</button></td>
+      <td data-label="Acción">
+        <div class="inventory-row-actions">
+          <button class="secondary-btn inventory-edit-btn" type="button" data-edit-inventory="${escapeHtml(product.sku)}">Editar</button>
+          <button class="danger-outline-btn inventory-edit-btn" type="button" data-delete-product="${escapeHtml(product.sku)}">Eliminar</button>
+        </div>
+      </td>
     </tr>
   `;
 }
@@ -5670,6 +5688,107 @@ async function handleInventoryUpdate(event) {
   } finally {
     submitButton.disabled = false;
     submitButton.textContent = "Guardar cambios";
+  }
+}
+
+function openProductCreator() {
+  if (!canManageAll() || !productDialog || !productForm) return;
+  productForm.reset();
+  document.querySelector("#product-brand").value = "BEAU VISAGE";
+  document.querySelector("#product-stock").value = "0";
+  document.querySelector("#product-price").value = "0.00";
+  productFormError.textContent = "";
+  productDialog.showModal();
+  window.setTimeout(() => document.querySelector("#product-sku")?.focus(), 60);
+}
+
+async function handleProductCreate(event) {
+  event.preventDefault();
+  if (!canManageAll()) return;
+
+  const sku = document.querySelector("#product-sku").value.trim().toUpperCase();
+  const name = document.querySelector("#product-name").value.trim();
+  const brand = document.querySelector("#product-brand").value.trim();
+  const category = document.querySelector("#product-category").value.trim();
+  const subcategory = document.querySelector("#product-subcategory").value.trim();
+  const stock = Number(document.querySelector("#product-stock").value);
+  const price = Number(document.querySelector("#product-price").value);
+
+  if (!sku || !name || !brand || !category) {
+    productFormError.textContent = "Completa el SKU, nombre, marca y categoría.";
+    return;
+  }
+  if (!Number.isFinite(stock) || stock < 0 || !Number.isFinite(price) || price < 0) {
+    productFormError.textContent = "El stock y el precio deben ser números válidos sin valores negativos.";
+    return;
+  }
+  if (products.some((product) => product.sku.toUpperCase() === sku)) {
+    productFormError.textContent = "Ya existe un producto activo con ese SKU.";
+    return;
+  }
+
+  const submitButton = productForm.querySelector("button[type='submit']");
+  submitButton.disabled = true;
+  submitButton.textContent = "Agregando...";
+  productFormError.textContent = "";
+
+  const newProduct = { sku, name, brand, category, subcategory, stock, price };
+
+  try {
+    if (isSupabaseMode()) {
+      await supabaseFetch("/rest/v1/rpc/create_product", {
+        method: "POST",
+        body: JSON.stringify({
+          p_actor_id: currentUser.id,
+          p_product: newProduct
+        })
+      });
+      await loadSupabaseData();
+    } else {
+      products.push({ ...newProduct });
+      products.sort((a, b) => `${a.category} ${a.name}`.localeCompare(`${b.category} ${b.name}`, "es"));
+    }
+
+    productDialog.close();
+    inventoryPage = 1;
+    showToast(`${name} fue agregado al inventario.`);
+    renderInventory();
+  } catch (error) {
+    productFormError.textContent = friendlyDatabaseError(error);
+  } finally {
+    submitButton.disabled = false;
+    submitButton.textContent = "Agregar producto";
+  }
+}
+
+async function handleProductDelete(sku) {
+  if (!canManageAll()) return;
+  const product = products.find((item) => item.sku === sku);
+  if (!product) return;
+
+  const accepted = window.confirm(`¿Eliminar “${product.name}” del inventario?
+
+Dejará de aparecer en Catálogo y Nuevo pedido. Los pedidos anteriores conservarán su información.`);
+  if (!accepted) return;
+
+  try {
+    if (isSupabaseMode()) {
+      await supabaseFetch("/rest/v1/rpc/deactivate_product", {
+        method: "POST",
+        body: JSON.stringify({
+          p_actor_id: currentUser.id,
+          p_sku: sku
+        })
+      });
+      await loadSupabaseData();
+    } else {
+      products = products.filter((item) => item.sku !== sku);
+    }
+
+    showToast(`${product.name} fue eliminado del inventario.`);
+    renderInventory();
+  } catch (error) {
+    showToast(`No se pudo eliminar el producto: ${friendlyDatabaseError(error)}`);
   }
 }
 
@@ -5940,6 +6059,9 @@ function renderUsers() {
   document.querySelector("#add-consultant-form").addEventListener("submit", handleConsultantSubmit);
   document.querySelector("#new-user-role")?.addEventListener("change", syncSupervisorField);
   document.querySelector("[data-action='focus-access']")?.addEventListener("click", () => document.querySelector("#new-consultant-name")?.focus());
+  document.querySelectorAll("[data-delete-user]").forEach((button) => {
+    button.addEventListener("click", () => handleUserDelete(button.dataset.deleteUser));
+  });
   syncSupervisorField();
 }
 
@@ -6051,6 +6173,7 @@ function unassignedTeamBlock(rows) {
 }
 
 function hierarchyPersonCard(user, subtitle, orders, className = "") {
+  const canDelete = canManageAll() && user.role === "supervisor";
   return `
     <article class="hierarchy-person ${className}">
       <div class="hierarchy-avatar">${initials(user.name)}</div>
@@ -6059,9 +6182,12 @@ function hierarchyPersonCard(user, subtitle, orders, className = "") {
         <span>${roleLabel(user.role)} · ${escapeHtml(user.zone || "Sin zona")}</span>
         <small>${escapeHtml(subtitle)}</small>
       </div>
-      <div class="row-metrics">
-        <span>${orders.length} ventas</span>
-        <strong>${formatMoney.format(sum(orders, "total"))}</strong>
+      <div class="user-card-actions">
+        <div class="row-metrics">
+          <span>${orders.length} ventas</span>
+          <strong>${formatMoney.format(sum(orders, "total"))}</strong>
+        </div>
+        ${canDelete ? `<button class="danger-outline-btn compact-danger-btn" type="button" data-delete-user="${escapeHtml(user.id)}">Eliminar supervisora</button>` : ""}
       </div>
     </article>
   `;
@@ -6069,6 +6195,7 @@ function hierarchyPersonCard(user, subtitle, orders, className = "") {
 
 function consultantMemberRow(user) {
   const orders = state.orders.filter((order) => order.consultantId === user.id);
+  const canDelete = canManageAll() || (currentUser?.role === "supervisor" && user.supervisorId === currentUser.id);
   return `
     <article class="member-row">
       <div>
@@ -6076,9 +6203,12 @@ function consultantMemberRow(user) {
         <span>${escapeHtml(user.email)} · ${escapeHtml(user.phone || "Sin telefono")}</span>
         <small>${escapeHtml(user.zone || "Sin zona")}</small>
       </div>
-      <div class="row-metrics">
-        <span>${orders.length} ventas</span>
-        <strong>${formatMoney.format(sum(orders, "total"))}</strong>
+      <div class="user-card-actions">
+        <div class="row-metrics">
+          <span>${orders.length} ventas</span>
+          <strong>${formatMoney.format(sum(orders, "total"))}</strong>
+        </div>
+        ${canDelete ? `<button class="danger-outline-btn compact-danger-btn" type="button" data-delete-user="${escapeHtml(user.id)}">Eliminar consultora</button>` : ""}
       </div>
     </article>
   `;
@@ -6157,6 +6287,55 @@ async function handleConsultantSubmit(event) {
   renderUsers();
 }
 
+async function handleUserDelete(userId) {
+  const target = users.find((user) => user.id === userId && user.active !== false);
+  if (!target || target.role === "management") return;
+
+  const isAllowed = canManageAll() || (currentUser?.role === "supervisor" && target.role === "consultant" && target.supervisorId === currentUser.id);
+  if (!isAllowed) {
+    showToast("No tienes permiso para eliminar ese acceso.");
+    return;
+  }
+
+  const teamCount = target.role === "supervisor" ? teamConsultants(target.id).length : 0;
+  const detail = target.role === "supervisor" && teamCount
+    ? `
+
+Sus ${teamCount} consultora${teamCount === 1 ? "" : "s"} quedarán sin supervisora, pero conservarán su acceso.`
+    : "";
+  const accepted = window.confirm(`¿Eliminar el acceso de ${target.name}?${detail}
+
+No podrá volver a iniciar sesión. Sus pedidos y ventas anteriores se conservarán.`);
+  if (!accepted) return;
+
+  try {
+    if (isSupabaseMode()) {
+      await supabaseFetch("/rest/v1/rpc/deactivate_app_user", {
+        method: "POST",
+        body: JSON.stringify({
+          p_actor_id: currentUser.id,
+          p_user_id: target.id
+        })
+      });
+      await loadSupabaseData();
+    } else {
+      target.active = false;
+      if (target.role === "supervisor") {
+        users.forEach((user) => {
+          if (user.role === "consultant" && user.supervisorId === target.id) user.supervisorId = "";
+        });
+      }
+      state.users = users;
+      saveState();
+    }
+
+    showToast(`El acceso de ${target.name} fue eliminado.`);
+    renderUsers();
+  } catch (error) {
+    showToast(`No se pudo eliminar el acceso: ${friendlyDatabaseError(error)}`);
+  }
+}
+
 function uniqueConsultantId(name) {
   const base = name
     .toLowerCase()
@@ -6175,11 +6354,11 @@ function uniqueConsultantId(name) {
 }
 
 function consultants() {
-  return users.filter((user) => user.role === "consultant");
+  return users.filter((user) => user.role === "consultant" && user.active !== false);
 }
 
 function supervisors() {
-  return users.filter((user) => user.role === "supervisor");
+  return users.filter((user) => user.role === "supervisor" && user.active !== false);
 }
 
 function teamConsultants(supervisorId) {
