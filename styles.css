@@ -3408,3 +3408,70 @@ textarea {
     width: 100%;
   }
 }
+
+
+/* Altas y bajas de productos y accesos */
+.danger-outline-btn {
+  min-height: 38px;
+  border: 1px solid rgba(185, 55, 62, 0.28);
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: var(--danger);
+  background: #fff7f7;
+  font-weight: 650;
+  transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+
+.danger-outline-btn:hover {
+  transform: translateY(-1px);
+  border-color: rgba(185, 55, 62, 0.52);
+  background: #fdebed;
+}
+
+.inventory-row-actions,
+.user-card-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.user-card-actions {
+  min-width: 150px;
+}
+
+.compact-danger-btn {
+  min-height: 32px;
+  padding: 6px 9px;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+#product-dialog .modal-body {
+  max-height: min(72vh, 720px);
+  overflow-y: auto;
+}
+
+@media (max-width: 680px) {
+  .inventory-row-actions,
+  .user-card-actions {
+    justify-content: stretch;
+  }
+
+  .inventory-row-actions button,
+  .user-card-actions button {
+    flex: 1 1 auto;
+  }
+
+  .hierarchy-person,
+  .member-row {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .hierarchy-person .user-card-actions,
+  .member-row .user-card-actions {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+}
